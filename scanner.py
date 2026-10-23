@@ -24,19 +24,34 @@ def save_state(state):
     with open(STATE_FILE, 'w') as f: json.dump(state, f, indent=4)
 
 def check_target_text_tesseract(img):
-    """极速版 Tesseract 识别，仅限数字"""
+    """增强版 Tesseract 识别，增加预处理并放宽白名单"""
     try:
+        # 1. 转换为灰度图
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # 白名单：只识别 0-9，速度极快
-        custom_config = r'--oem 3 --psm 11 -c tessedit_char_whitelist=0123456789'
-        text = pytesseract.image_to_string(gray, config=custom_config)
-        return "46" in text
+        
+        # 2. 将图片放大 2 倍，显著提升 Tesseract 对小字体的识别率
+        gray = cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+        
+        # 3. 强力二值化：把背景彻底变黑，文字彻底变白
+        # 这里的 150 是阈值，可以根据实际情况微调 (100~180之间)
+        _, binary = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+        
+        # 4. 放宽白名单：允许识别大小写字母和数字，避免连笔字被强制丢弃
+        # --psm 11 表示按稀疏文本查找
+        custom_config = r'--oem 3 --psm 11 -c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+        
+        # 将处理后黑白分明的图像送入引擎
+        text = pytesseract.image_to_string(binary, config=custom_config)
+        
+        if "46" in text:
+            return True
+        return False
     except Exception as e:
         print(f"OCR Error: {e}")
         return False
 
 def push_to_telegram(image_url, index):
-    print(f"✨ 发现目标封面 [序号 {index}]，正在推送...")
+    print(f"发现目标封面 [序号 {index}]，正在推送...")
     api_url = f"https://api.telegram.org/bot{TG_TOKEN}/sendPhoto"
     caption = f"发现包含 46 的新封面！\n序号: {index}\n{image_url}"
     try:
