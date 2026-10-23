@@ -18,11 +18,11 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: 3. 部署底层模块 (Tesseract C++ 引擎)
-      # 这是最关键的一步，Ubuntu 虚拟机出厂没有 Tesseract，必须通过 apt-get 安装
+    # 删掉原本的第 3 步 (apt-get install tesseract-ocr)
+    - name: 3. 部署 Python 依赖包 (使用 RapidOCR)
       run: |
-        sudo apt-get update
-        sudo apt-get install -y tesseract-ocr tesseract-ocr-eng
+        python -m pip install --upgrade pip
+        pip install requests opencv-python-headless numpy rapidocr_onnxruntime
 
     - name: 4. 部署 Python 依赖包
       # 安装我们代码需要的接口库和图像处理库
