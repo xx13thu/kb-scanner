@@ -75,7 +75,7 @@ def run_scanner():
                     img_array = np.asarray(bytearray(r.content), dtype=np.uint8)
                     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
                     
-                    if check_target_text_(img):
+                    if check_target_text_tesseract(img):
                         push_to_telegram(url, idx)
                     # 成功出图后，不再放回 still_empty，相当于从待扫列表中彻底移除
                 else:
@@ -119,7 +119,7 @@ def run_scanner():
                 img_array = np.asarray(bytearray(r.content), dtype=np.uint8)
                 img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
                 
-                if check_target_text_(img):
+                if check_target_text_tesseract(img):
                     push_to_telegram(url, current_index)
                 
                 # 3. 重置连续空图计数器，并将下一次的起点推进到 (当前有效图序号 + 1)
