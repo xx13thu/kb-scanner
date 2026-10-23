@@ -4,7 +4,8 @@ import time
 import requests
 import numpy as np
 import cv2
-import pytesseract
+from rapidocr_onnxruntime import RapidOCR
+ocr_engine = RapidOCR()
 
 # ==========================
 # 环境变量配置 (在 GitHub Actions 中设置)
@@ -22,10 +23,6 @@ def load_state():
 
 def save_state(state):
     with open(STATE_FILE, 'w') as f: json.dump(state, f, indent=4)
-
-# 在文件最顶部引入并初始化（全局只加载一次模型，速度极快）
-from rapidocr_onnxruntime import RapidOCR
-ocr_engine = RapidOCR()
 
 def check_target_text_tesseract(img):
     """使用深度学习引擎 RapidOCR，无需繁琐的图像二值化预处理"""
@@ -78,7 +75,7 @@ def run_scanner():
                     img_array = np.asarray(bytearray(r.content), dtype=np.uint8)
                     img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
                     
-                    if check_target_text_tesseract(img):
+                    if check_target_text_(img):
                         push_to_telegram(url, idx)
                     # 成功出图后，不再放回 still_empty，相当于从待扫列表中彻底移除
                 else:
@@ -122,7 +119,7 @@ def run_scanner():
                 img_array = np.asarray(bytearray(r.content), dtype=np.uint8)
                 img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
                 
-                if check_target_text_tesseract(img):
+                if check_target_text_(img):
                     push_to_telegram(url, current_index)
                 
                 # 3. 重置连续空图计数器，并将下一次的起点推进到 (当前有效图序号 + 1)
