@@ -23,28 +23,22 @@ def load_state():
 def save_state(state):
     with open(STATE_FILE, 'w') as f: json.dump(state, f, indent=4)
 
+# 在文件最顶部引入并初始化（全局只加载一次模型，速度极快）
+from rapidocr_onnxruntime import RapidOCR
+ocr_engine = RapidOCR()
+
 def check_target_text_tesseract(img):
-    """增强版 Tesseract 识别，增加预处理并放宽白名单"""
+    """使用深度学习引擎 RapidOCR，无需繁琐的图像二值化预处理"""
     try:
-        # 1. 转换为灰度图
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        # 2. 将图片放大 2 倍，显著提升 Tesseract 对小字体的识别率
-        gray = cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-        
-        # 3. 强力二值化：把背景彻底变黑，文字彻底变白
-        # 这里的 150 是阈值，可以根据实际情况微调 (100~180之间)
-        _, binary = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
-        
-        # 4. 放宽白名单：允许识别大小写字母和数字，避免连笔字被强制丢弃
-        # --psm 11 表示按稀疏文本查找
-        custom_config = r'--oem 3 --psm 11 -c tessedit_char_whitelist=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-        
-        # 将处理后黑白分明的图像送入引擎
-        text = pytesseract.image_to_string(binary, config=custom_config)
-        
-        if "46" in text:
-            return True
+        # 直接把彩色原图丢进去识别
+        result, _ = ocr_engine(img)
+        if result:
+            for line in result:
+                text = line[1] # 拿到识别出的文本字符串
+                # 只要包含 46、坂道罗马音 zaka、或者汉字“坂”
+                if "46" in text or "zaka" in text.lower() or "坂" in text:
+                    print(f"  -> 🎯 命中特征文字: {text}")
+                    return True
         return False
     except Exception as e:
         print(f"OCR Error: {e}")
