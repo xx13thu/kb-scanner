@@ -1,4 +1,6 @@
 {
-    "historical_empties": [],
-    "next_start_index": 299624876
+    "historical_empties": [
+        299624914
+    ],
+    "next_start_index": 299625036
 }
