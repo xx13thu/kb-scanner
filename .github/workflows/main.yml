@@ -2,7 +2,7 @@ name: kkbox-cover-scanner
 
 on:
   schedule:
-    - cron: '0 */2 * * *'  # 每 2 小时触发一次
+    - cron: '0 */3 * * *'  # 每 3 小时触发一次
   workflow_dispatch:
 
 # ==========================================
