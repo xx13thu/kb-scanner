@@ -14,8 +14,8 @@ from rapidocr_onnxruntime import RapidOCR
 TG_TOKEN = os.environ.get("TG_TOKEN")
 TG_CHAT_ID = os.environ.get("TG_CHAT_ID")
 
-SCAN_URL_TEMPLATE = "https://i.kfs.io/album/global/{},0v3/fit/800x800.jpg"
-HIGH_RES_URL_TEMPLATE = "https://i.kfs.io/album/global/{},0v3/fit/1000x1000.jpg"
+SCAN_URL_TEMPLATE = "https://i.kfs.io/album/global/{},0v1/fit/800x800.jpg"
+HIGH_RES_URL_TEMPLATE = "https://i.kfs.io/album/global/{},0v1/fit/1000x1000.jpg"
 
 STATE_FILE = "scan_state.json"
 MAX_CONSECUTIVE_EMPTY = 500   # 应对大面积空洞，调大熔断阈值
