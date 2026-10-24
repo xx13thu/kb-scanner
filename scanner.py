@@ -20,7 +20,7 @@ HIGH_RES_URL_TEMPLATE = "https://i.kfs.io/album/global/{},0v1/fit/1000x1000.jpg"
 STATE_FILE = "scan_state.json"
 MAX_CONSECUTIVE_EMPTY = 500   # 应对大面积空洞，调大熔断阈值
 MAX_WORKERS = 16              # RapidOCR 线程数适配 7GB 内存
-BATCH_SIZE = 100              # 每批次扫描数量
+BATCH_SIZE = 160              # 每批次扫描数量
 MAX_RUNTIME = 2*60*60 + 50*60        # 2小时50分钟安全下班闹钟
 
 # 全局高速连接池
