@@ -2,15 +2,15 @@ name: kkbox-cover-scanner
 
 on:
   schedule:
-    - cron: '0 */3 * * *'  # 每 3 小时触发一次
+    - cron: '0 */3 * * *'
   workflow_dispatch:
+  push:
+    paths:
+      - 'scanner.py'  # 修改代码保存后自动触发
 
-# ==========================================
-# 防双开排队锁：绝不允许两个任务同时运行
-# ==========================================
 concurrency:
   group: nogi-scanner-group
-  cancel-in-progress: false  # 设为 false：如果上一班还没跑完，下一班就在外面排队等它保存完进度再开始
+  cancel-in-progress: true  # 自动掐断旧任务
 
 jobs:
   scan-and-push:
@@ -25,25 +25,20 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: 3. 部署底层模块 (Tesseract C++ 引擎)
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y tesseract-ocr tesseract-ocr-eng
-
-    - name: 4. 部署 Python 依赖包
+    - name: 3. 部署 Python 依赖包 (RapidOCR)
       run: |
         python -m pip install --upgrade pip
-        pip install requests pytesseract opencv-python-headless numpy
+        pip install requests opencv-python-headless numpy rapidocr_onnxruntime
 
-    - name: 5. 执行核心扫描脚本
+    - name: 4. 执行核心扫描脚本
       env:
         TG_TOKEN: ${{ secrets.TG_TOKEN }}
         TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-        PYTHONUNBUFFERED: "1"  # 实时刷新日志
+        PYTHONUNBUFFERED: "1"  
       run: python scanner.py
 
-    - name: 6. 持久化保存进度 (回写 scan_state.json)
-      if: always()  # 哪怕前面报错或被手动取消，也强制保存当前已扫完的进度
+    - name: 5. 持久化保存进度
+      if: always()
       run: |
         git config --global user.name 'github-actions[bot]'
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
