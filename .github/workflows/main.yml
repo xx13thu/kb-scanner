@@ -35,7 +35,7 @@ jobs:
         TG_TOKEN: ${{ secrets.TG_TOKEN }}
         TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
         PYTHONUNBUFFERED: "1"  
-      run: python scanner fast2.py
+      run: python scanner_fast2.py
 
     - name: 5. 持久化保存进度
       if: always()
