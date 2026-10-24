@@ -4,9 +4,9 @@ on:
   schedule:
     - cron: '0 */3 * * *'
   workflow_dispatch:
-  push:
-    paths:
-      - 'scanner.py'  # 修改代码保存后自动触发
+  # push:
+  #   paths:
+  #     - 'scanner.py'  # 修改代码保存后自动触发
 
 concurrency:
   group: nogi-scanner-group
