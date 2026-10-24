@@ -34,7 +34,7 @@ def check_target_text_tesseract(img):
                 text = line[1] # 拿到识别出的文本字符串
                 # 只要包含 46、坂道罗马音 zaka、或者汉字“坂”
                 if "46" in text or "zaka" in text.lower() or "坂" in text:
-                    print(f"  -> 🎯 命中特征文字: {text}")
+                    print(f"  -> 命中特征文字: {text}")
                     return True
         return False
     except Exception as e:
@@ -51,25 +51,33 @@ def push_to_telegram(image_url, index):
         print(f"推送失败: {e}")
 
 def run_scanner():
+    # 新增：记录启动时间，设置最大运行时长为 2小时50分钟
+    # 确保在 3 小时的定时周期到来前主动下班，留出时间把进度 git push 回仓库
+    start_time = time.time()
+    MAX_RUNTIME = 2*60*60 + 50*60  
+
     state = load_state()
-    # 读取历史空缺列表（转为集合方便去重）和下次扫描起点
     historical_empties = set(state.get("historical_empties", []))
     next_start_index = state.get("next_start_index", 1)
     
-    print(f"启动扫描任务 | 待重扫历史空号: {len(historical_empties)} 个 | 本次推进起点: {next_start_index}")
+    print(f"🚀 启动扫描任务 | 待重扫历史空号: {len(historical_empties)} 个 | 本次推进起点: {next_start_index}")
 
     # ==========================================
-    # 阶段一：优先重扫历史空缺序号 (如 10, 15, 21)
+    # 阶段一：优先重扫历史空缺序号
     # ==========================================
     if historical_empties:
         print("--- 开始阶段一：历史空号回填扫描 ---")
-        still_empty = set()
         
+        # 遍历历史空号的副本，方便在原集合中实时剔除已出图的序号
         for idx in sorted(list(historical_empties)):
+            # 检查是否到了下班时间
+            if time.time() - start_time > MAX_RUNTIME:
+                print("运行已满设定分钟，阶段一暂停，准备保存进度交接给下一班...")
+                break
+
             url = BASE_URL_TEMPLATE.format(idx)
             try:
                 r = requests.get(url, stream=True, timeout=10)
-                # 状态码为 200 且没有被跳转到 noimg 占位图，说明空号终于更新图片了
                 if r.status_code == 200 and "noimg/fit" not in r.url:
                     print(f"[回填成功] 历史空号 {idx} 已更新图片！")
                     img_array = np.asarray(bytearray(r.content), dtype=np.uint8)
@@ -77,20 +85,15 @@ def run_scanner():
                     
                     if check_target_text_tesseract(img):
                         push_to_telegram(url, idx)
-                    # 成功出图后，不再放回 still_empty，相当于从待扫列表中彻底移除
-                else:
-                    # 依然是空图，继续保留，留给下次任务重扫
-                    still_empty.add(idx)
+                    
+                    # 出图后立刻从历史空号集合中移除，并实时保存
+                    historical_empties.discard(idx)
+                    state["historical_empties"] = sorted(list(historical_empties))
+                    save_state(state)
             except Exception as e:
                 print(f"[网络异常] 历史空号 {idx}: {e}")
-                still_empty.add(idx) # 网络报错也先保留，防止漏扫
                 
             time.sleep(0.3)
-            
-        # 阶段一结束，保存最新的历史空号列表
-        historical_empties = still_empty
-        state["historical_empties"] = sorted(list(historical_empties))
-        save_state(state)
 
     # ==========================================
     # 阶段二：从高水位线起点向前推进扫描新图
@@ -98,39 +101,39 @@ def run_scanner():
     print(f"--- 开始阶段二：从 {next_start_index} 向前推进 ---")
     current_index = next_start_index
     consecutive_empty = 0
-    temp_empties = [] # 临时缓冲池：记录当前连续遇到的空号
+    temp_empties = []
     
     while consecutive_empty < MAX_CONSECUTIVE_EMPTY:
+        # 每次循环前检查是否到了设定下班时间
+        if time.time() - start_time > MAX_RUNTIME:
+            print(f"运行已满设定时间，主动停止扫描！当前已安全推进至 {state.get('next_start_index')}。")
+            break
+
         url = BASE_URL_TEMPLATE.format(current_index)
         try:
             r = requests.get(url, stream=True, timeout=10)
             
-            # 发现有效新图
             if r.status_code == 200 and "noimg/fit" not in r.url:
                 print(f"[发现新图] 序号 {current_index}")
                 
-                # 1. 如果在这张有效图之前遇到过零星的空号（未满100个），将它们正式归入历史空缺列表
                 if temp_empties:
                     historical_empties.update(temp_empties)
                     state["historical_empties"] = sorted(list(historical_empties))
-                    temp_empties = [] # 清空临时缓冲池
+                    temp_empties = []
                 
-                # 2. 解码并进行 OCR 识别
                 img_array = np.asarray(bytearray(r.content), dtype=np.uint8)
                 img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
                 
                 if check_target_text_tesseract(img):
                     push_to_telegram(url, current_index)
                 
-                # 3. 重置连续空图计数器，并将下一次的起点推进到 (当前有效图序号 + 1)
                 consecutive_empty = 0
                 state["next_start_index"] = current_index + 1
                 save_state(state)
                 
             else:
-                # 遇到空图（404 或被跳转到 noimg 占位图）
                 consecutive_empty += 1
-                temp_empties.append(current_index) # 先放进临时缓冲池观望
+                temp_empties.append(current_index)
                 print(f"[空图] 序号 {current_index} (连续为空: {consecutive_empty}/{MAX_CONSECUTIVE_EMPTY})")
                 
         except Exception as e:
@@ -141,13 +144,7 @@ def run_scanner():
         current_index += 1
         time.sleep(0.3)
         
-    # ==========================================
-    # 触及熔断收尾
-    # ==========================================
-    # 注意：最后连续碰壁导致熔断的这 100 个 temp_empties 不会写入 historical_empties，
-    # 因为 state["next_start_index"] 依然停留在 (最后一张有效图 + 1) 的位置，下次启动阶段二时会自然重扫它们。
-    print(f"触及连续 {MAX_CONSECUTIVE_EMPTY} 个空图熔断，当前任务结束。")
-    print(f"状态已保存 | 累计历史空号: {len(state.get('historical_empties', []))} 个 | 下次推进起点: {state.get('next_start_index')}")
+    print(f"本次任务结束 | 累计历史空号: {len(state.get('historical_empties', []))} 个 | 下次推进起点: {state.get('next_start_index')}")
 
 if __name__ == "__main__":
     run_scanner()
