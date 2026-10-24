@@ -64,10 +64,30 @@ def push_to_telegram(index):
     print(f"✨ 发现目标封面 [序号 {index}]，正在推送高清图...")
     api_url = f"https://api.telegram.org/bot{TG_TOKEN}/sendPhoto"
     caption = f"发现包含 46 的新封面！\n序号: {index}\n{hd_url}"
-    try:
-        session.post(api_url, data={"chat_id": TG_CHAT_ID, "photo": hd_url, "caption": caption}, timeout=10)
-    except Exception as e:
-        print(f"推送失败: {e}")
+    
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            # 放宽 timeout 至 15 秒，给 Telegram 服务器更多响应时间
+            response = session.post(
+                api_url, 
+                data={"chat_id": TG_CHAT_ID, "photo": hd_url, "caption": caption}, 
+                timeout=15
+            )
+            
+            # 判断 Telegram 是否真实接收成功
+            if response.status_code == 200:
+                print(f"序号 {index} 推送成功！")
+                break
+            else:
+                print(f"推送异常 (状态码 {response.status_code}): {response.text}")
+                
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"推送超时，等待 2 秒后进行第 {attempt + 1} 次重试... (错误: {e})")
+                time.sleep(2)
+            else:
+                print(f"连续 {max_retries} 次推送失败 [序号 {index}]: {e}")
 
 def process_single_index(idx):
     url = SCAN_URL_TEMPLATE.format(idx)
