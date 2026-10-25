@@ -105,10 +105,7 @@ def push_to_telegram(index):
 def process_single_index(idx):
     url = SCAN_URL_TEMPLATE.format(idx)
     try:
-        # 核心提速修改：
-        # 1. 直接用 requests.get 替代 session，避免底层连接池锁死
-        # 2. 加上 "Connection": "close"，查完立刻断开，不占用对方服务器资源，极大降低被限流概率
-        # 3. 超时时间设为 (连接 1.5秒, 读取 1.5秒)。GitHub 网速极快，只要 1.5 秒没下完，直接判定为空跳过！
+        # 第一步：极速探路（禁止自动跳转）
         r = requests.get(
             url, 
             allow_redirects=False, 
@@ -116,15 +113,32 @@ def process_single_index(idx):
             headers={"User-Agent": "Mozilla/5.0", "Connection": "close"}
         )
         
-        if r.status_code == 200 and "noimg" not in r.url:
-            img_array = np.asarray(bytearray(r.content), dtype=np.uint8)
+        # 提取真实的目标链接（如果没有跳转，就是原链接；如果有跳转，就是跳转后的链接）
+        final_url = url
+        if r.status_code in (301, 302):
+            final_url = r.headers.get("Location", "")
+            
+        # 🌟 核心拦截逻辑：只要目标链接里包含 "noimg"，直接秒判为空号！
+        if "noimg" in final_url or not final_url:
+            return (idx, False, False)
+            
+        # 如果不是空号，不管是原来的 0v1 还是跳转后的 0v2，直接去下载这张真图
+        r_real = requests.get(
+            final_url, 
+            timeout=(1.5, 1.5), 
+            headers={"User-Agent": "Mozilla/5.0", "Connection": "close"}
+        )
+        
+        if r_real.status_code == 200:
+            img_array = np.asarray(bytearray(r_real.content), dtype=np.uint8)
             img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
             if img is not None:
+                # 🌟 OCR 识别用的是这张 final_url 下载下来的新图
                 is_target = check_target_text(img)
                 return (idx, True, is_target)
+                
         return (idx, False, False)
     except Exception:
-        # 只要超时或者网络卡顿，直接返回没图，后续会有连续空图兜底，不要死等
         return (idx, False, False)
 
 def run_scanner():
