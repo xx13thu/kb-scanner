@@ -208,7 +208,7 @@ def run_scanner():
             results = list(executor.map(process_single_index, batch_indices))
             
             hit_circuit_breaker = False
-            for idx, has_img, is_target in results:
+            for idx, has_img, is_target, final_url in results:
                 if has_img:
                     if temp_empties:
                         for empty_idx in temp_empties:
