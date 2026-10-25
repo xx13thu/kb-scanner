@@ -1,4 +1,4 @@
-name: kkbox-cover-scanner
+name: kb-scanner
 
 on:
   schedule:
