@@ -177,7 +177,7 @@ def run_scanner():
                 batch = sorted_empties[i : i + BATCH_SIZE]
                 results = list(executor.map(process_single_index, batch))
                 
-                for idx, has_img, is_target in results:
+                for idx, has_img, is_target, final_url in results:
                     if has_img:
                         print(f"[回填成功] 历史空号 {idx} 已出图！")
                         if is_target: push_to_telegram(idx)
