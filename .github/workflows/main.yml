@@ -10,7 +10,7 @@ on:
 
 concurrency:
   group: nogi-scanner-group
-  cancel-in-progress: true  # 自动掐断旧任务
+  cancel-in-progress: false
 
 jobs:
   scan-and-push:
