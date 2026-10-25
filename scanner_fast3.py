@@ -56,6 +56,10 @@ def load_state():
             }
     return {"historical_empties": {}, "next_start_index": 1}
 
+def save_state(state):
+    with open(STATE_FILE, 'w') as f:
+        json.dump(state, f, indent=4)
+
 def check_target_text(img):
     """极简 RapidOCR 识别，自带高抗干扰能力"""
     try:
