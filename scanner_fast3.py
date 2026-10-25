@@ -104,42 +104,53 @@ def push_to_telegram(index):
 
 def process_single_index(idx):
     url = SCAN_URL_TEMPLATE.format(idx)
-    try:
-        # 第一步：极速探路（禁止自动跳转）
-        r = requests.get(
-            url, 
-            allow_redirects=False, 
-            timeout=(1.5, 1.5), 
-            headers={"User-Agent": "Mozilla/5.0", "Connection": "close"}
-        )
-        
-        # 提取真实的目标链接（如果没有跳转，就是原链接；如果有跳转，就是跳转后的链接）
-        final_url = url
-        if r.status_code in (301, 302):
-            final_url = r.headers.get("Location", "")
+    max_retries = 3  # 单个链接遭遇网络异常时的局部重试次数
+    
+    for attempt in range(max_retries):
+        try:
+            # 适当放宽超时时间：2秒连接，4秒读取
+            r = requests.get(
+                url, 
+                allow_redirects=False, 
+                timeout=(2.0, 4.0), 
+                headers={"User-Agent": "Mozilla/5.0", "Connection": "close"}
+            )
             
-        # 🌟 核心拦截逻辑：只要目标链接里包含 "noimg"，直接秒判为空号！
-        if "noimg" in final_url or not final_url:
-            return (idx, False, False)
-            
-        # 如果不是空号，不管是原来的 0v1 还是跳转后的 0v2，直接去下载这张真图
-        r_real = requests.get(
-            final_url, 
-            timeout=(1.5, 1.5), 
-            headers={"User-Agent": "Mozilla/5.0", "Connection": "close"}
-        )
-        
-        if r_real.status_code == 200:
-            img_array = np.asarray(bytearray(r_real.content), dtype=np.uint8)
-            img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-            if img is not None:
-                # 🌟 OCR 识别用的是这张 final_url 下载下来的新图
-                is_target = check_target_text(img)
-                return (idx, True, is_target)
+            final_url = url
+            if r.status_code in (301, 302):
+                final_url = r.headers.get("Location", "")
                 
-        return (idx, False, False)
-    except Exception:
-        return (idx, False, False)
+            if "noimg" in final_url or not final_url:
+                return (idx, False, False, "")
+                
+            r_real = requests.get(
+                final_url, 
+                timeout=(2.0, 4.0), 
+                headers={"User-Agent": "Mozilla/5.0", "Connection": "close"}
+            )
+            
+            if r_real.status_code == 200:
+                img_array = np.asarray(bytearray(r_real.content), dtype=np.uint8)
+                img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+                if img is not None:
+                    is_target = check_target_text(img)
+                    return (idx, True, is_target, final_url)
+            
+            # 服务器明确返回非 200，说明确实验证无图，直接放弃
+            return (idx, False, False, "")
+            
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+            # 遇到网络抖动时不急于判死刑，休眠 1 秒后重试
+            if attempt < max_retries - 1:
+                time.sleep(1)
+                continue
+            else:
+                # 3 次局部重试均失败，交给外层 JSON 的 10 次跨任务淘汰制兜底
+                return (idx, False, False, "")
+        except Exception:
+            return (idx, False, False, "")
+            
+    return (idx, False, False, "")
 
 def run_scanner():
     start_time = time.time()
