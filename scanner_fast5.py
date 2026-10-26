@@ -113,7 +113,7 @@ def process_single_index(idx):
     for attempt in range(max_retries):
         try:
             # 全部改用刚才建立的全局 session
-            with session.get(url, allow_redirects=False, stream=True, timeout=(2.0, 4.0), headers=headers) as r:
+            with session.get(url, allow_redirects=False, stream=True, timeout=(1.5, 3.0), headers=headers) as r:
                 final_url = url
                 
                 # 严格判定 1：明确告知 404 (真没图)
@@ -134,7 +134,7 @@ def process_single_index(idx):
                         return (idx, False, False, "")
                         
                     # 下载真图，同样使用 session
-                    r_real = session.get(final_url, timeout=(2.0, 4.0), headers=headers)
+                    r_real = session.get(final_url, timeout=(1.5, 3.0), headers=headers)
                     if r_real.status_code == 200:
                         img_array = np.asarray(bytearray(r_real.content), dtype=np.uint8)
                         img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
