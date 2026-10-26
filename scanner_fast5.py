@@ -46,7 +46,7 @@ def load_state():
             
             # 兼容老版本的列表，并强制清洗掉堆积的几万个死链，只留最后 1000 个
             if isinstance(raw_empties, list):
-                for idx in raw_empties[-1000:]:
+                for idx in raw_empties[-10000:]:
                     new_empties[int(idx)] = 0  # 初始重试次数设为 0
             else:
                 # 已经是新版字典，强制将键转为整数，将值(重试次数)转为整数
